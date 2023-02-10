@@ -1,0 +1,64 @@
+= Week 3 homework
+Andrew Peel <andrew@andrewpeel.id.au>
+
+
+== Week 3 homework, question 1
+I loaded the 12 `.csv.gz` files into my GCP bucket `dtc_data_lake_zoomcamp-week1-375306/de-zoomcamp-2023/data/fhv/`
+
+In BigQuery, I created `week3` data set, and made an external table `week3.fhv`.
+I used a wildcard `*` in the filename an it imported all 12 files.
+I used auto detection, and columns `PUlocationID` and `DOlocationID`  have INTEGER instead of STRING type, which is annoying.
+
+ > SELECT count(*) from `zoomcamp-week1-375306.week3.fhv
+
+43244696
+
+It took 30 seconds to run.
+
+I also created a native table with the same data, `fhv_native`. +
+It has the same number of rows.
+
+== Week 3 homework, question 2
+Write a query to count the distinct number of `affiliated_base_number` for the entire dataset on both the tables.
+
+ > SELECT count(DISTINCT Affiliated_base_number) FROM `zoomcamp-week1-375306.week3.fhv_native`
+
+For the native table, the query will process 317.94 MB. +
+On the external table, it will process 0 MB.
+
+I think the external table reports 0 MB as BQ does not know how many rows are in the external files.
+
+== Week 3 homework, question 3
+I did
+
+ > SELECT count(*) FROM `zoomcamp-week1-375306.week3.fhv_native` WHERE (PUlocationID is NULL) AND (DOlocationID is NULL)
+
+717748
+
+== Week 3 homework, question 4
+What is the best strategy to optimize the table if query always filter by `pickup_datetime` and order by `affiliated_base_number`?
+
+The answer is "Partition by pickup_datetime Cluster on affiliated_base_number".
+
+By partitioning on `pickup_datetime`, the query will access less data.
+Tables can only be partitioned on one column, so that is the answer.
+Clustering on `affiliated_base_number` may speed up the sorting, but I don't think it will reduce the data transfer.
+
+== Week 3 homework, question 5
+I made a partitioned table, `fhv_partitioned`,
+
+ > CREATE TABLE `zoomcamp-week1-375306.week3.fhv_partitioned` PARTITION BY DATE(pickup_datetime) CLUSTER BY affiliated_base_number AS SELECT * FROM `zoomcamp-week1-375306.week3.fhv_native`;
+
+Write a query to retrieve the distinct affiliated_base_number between `pickup_datetime` 2019/03/01 and 2019/03/31 (inclusive).
+
+ > SELECT DISTINCT Affiliated_base_number FROM `week3.fhv_partitioned` WHERE EXTRACT(DATE FROM pickup_datetime) >= DATE(2019, 3, 1) AND EXTRACT(DATE FROM pickup_datetime) <= DATE(2019, 3, 31);
+
+23.05 MB processed from the partitioned table. +
+647.87 MB processed from the unpartitioned table.
+
+== Week 3 homework, question 6
+The data in the external table is in GCP Bucket.
+
+== Week 3 homework, question 7
+No, don't always cluster a table. +
+It depends on questions such as what queries will be run on it, and whether more data will be inserted in the future.
